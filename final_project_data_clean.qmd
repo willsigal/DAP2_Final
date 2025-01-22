@@ -1,0 +1,165 @@
+---
+title: "Final Project Data Clean"
+format: 
+  pdf:
+    keep-tex: true
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+include-before-body:
+  text: |
+    \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
+      showspaces = false,
+      showtabs = false,
+      breaksymbolleft={},
+      breaklines
+    }
+---
+
+
+```{python}
+### SETUP 
+import pandas as pd
+import altair as alt
+import time
+import os
+import warnings
+import geopandas as gpd
+import numpy as np
+import matplotlib.pyplot as plt
+warnings.filterwarnings('ignore')
+import requests
+from bs4 import BeautifulSoup
+import concurrent.futures
+
+### SETTING WD
+os.chdir('d:\\UChicago\\Classes\\2024Qfall\\Programming Python\\Final-Project\\Data') #andy wd
+#os.chdir("C:\Users\jmull\Downloads\ACLED_2017-2024-Q1-QTA.csv")  #juan wd
+#os.chdir("/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final")   #will wd
+
+```
+Just put your directory in the top line of each chunk when needed, and then make all other wds comments each time you work on yours
+
+
+
+
+## code for cleaning World Bank Development Indicator (central america) (Andy)
+
+```{python}
+wbcm = pd.read_csv('central_america_data_combined.csv', header=None, skiprows=4)
+
+# remove empty space, set header, remove years before 2000, and empty variables
+wbcm.columns = wbcm.iloc[0]
+wbcm = wbcm[1:].reset_index(drop=True)
+wbcm = wbcm.drop(wbcm.columns[4:44], axis=1)
+
+wbcm = wbcm.loc[~wbcm.iloc[:, 4:].isna().all(axis=1)] # only drops columns that are fully empty--basically a less harsh dropna
+
+# melting
+wbcm_melt = wbcm.melt(id_vars=['Country Name','Country Code','Indicator Name','Indicator Code'], var_name='Year', value_name='Value')
+wbcm_melt = wbcm_melt.drop('Indicator Code', axis=1)
+
+# pivot
+wbcm_pv = wbcm_melt.pivot_table(index=['Country Name', 'Year'], columns='Indicator Name', values='Value', aggfunc='first').reset_index()
+
+```
+
+reducing wbcm columns
+```{python}
+# remove na (if column has more than 10% values missing then drop)
+wbcm_pv = wbcm_pv.loc[:, wbcm_pv.isnull().mean() <= 0.1]
+
+# filter by keywords
+keywords = ['Country','Year', "employment", "debt", "tax", "gdp", 'homicide','death','birth','expenditures','public','education']
+wbcm_pv_pattern = "|".join(keywords)
+wbcm_pv = wbcm_pv.filter(regex=wbcm_pv_pattern, axis=1)
+
+exclude_keywords = ["modeled", "external debt",'multilateral','Short-term']
+wbcm_pv_excluded = "|".join(exclude_keywords)  # "modeled|external debt"
+
+wbcm_pv = wbcm_pv.loc[:, ~wbcm_pv.columns.str.contains(wbcm_pv_excluded, case=False)]
+```
+
+```{python}
+# export
+wbcm_pv.to_csv("central_america_data_cleaned.csv", index=False)
+```
+
+wbcm_columns = ['Population growth (annual %)', 'Intentional homicides, female (per 100,000 female)', 'Merchandise imports by the reporting economy (current US$)','Commercial service imports (current US$)', etc...]
+
+variables we are considering are the categroies surrounding: 
+employment, debt, tax, expenditures (education, public services, infrastructure, health), life exp. birth and death rates.
+
+
+
+
+## code for cleaning World Bank Development Inidcators (Kaggle) (Andy)
+
+```{python}
+wbdi = pd.read_csv('world_bank_development_indicators.csv')
+
+# subset to central american countries, and post 2000
+countries_list = ['Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Mexico', 'Nicaragua', 'Panama']
+wbdi_CA = wbdi[wbdi['country'].isin(countries_list)]
+
+wbdi_CA['date'] = pd.to_datetime(wbdi_CA['date'])
+wbdi_CA = wbdi_CA[wbdi_CA['date'] > '2000-01-01']
+```
+
+reducing wbdi columns
+```{python}
+# subset by relevant columns
+wbdi_CA_columns = ['country','date','land_area','intentional_homicides','GDP_current_US','population','life_expectancy_at_birth','access_to_electricity%','inflation_annual%','gini_index','human_capital_index','intentional_homicides','CO2_emisions','real_interest_rate','tax_revenue%','expense%','political_stability_estimate','rule_of_law_estimate','life_expectancy_at_birth','population']
+
+wbdi_CA = wbdi_CA[wbdi_CA_columns]
+```
+
+```{python}
+# export
+wbdi_CA.to_csv("world_bank_development_indicators_cleaned.csv", index=False)
+```
+
+
+
+
+## code for cleaning ACLED (Juan)
+
+```{python}
+### ACLED import (simplified so only 1 line is needed to be changed)
+
+acled = pd.read_csv('ACLED_2017-2024-Q1-QTA.csv')
+
+# Subset by Central American countries
+acled_CA = acled[acled["region"] == "Central America"]
+```
+
+reducing acled columns
+```{python}
+# Subset by relevant variables
+acled_columns = ['year',"event_id_cnty", "event_date", "event_type", 
+           "sub_event_type", "actor1", "actor2", 
+           "inter1", "inter2", "interaction", 
+           "country", "admin1", "latitude", 
+           "longitude", "geo_precision", "notes"]
+
+acled_CA = acled_CA[acled_columns]
+```
+
+```{python}
+# export
+acled_CA.to_csv('acled_project_data_cleaned.csv', index=False)
+```
+
+
+
+
+## Creating a merged dataset
+
+```{python}
+
+```
+
+Countries: 
+(['Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras',
+       'Mexico', 'Nicaragua', 'Panama'], dtype=object)

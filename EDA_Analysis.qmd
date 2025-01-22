@@ -1,0 +1,728 @@
+This is a new Quarto Markdown file for EDA on Larger Data Set
+
+
+```{python}
+import pandas as pd
+import altair as alt
+
+CA_ACLED = pd.read_csv('/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/acled_project_data_cleaned.csv')
+```
+
+
+```{python}
+required_columns = ['year', 'event_type', 'location']
+if not all(col in CA_ACLED.columns for col in required_columns):
+    raise ValueError(f"The dataset must include the columns: {', '.join(required_columns)}")
+
+```
+
+## Bar Chart for total Crimes per Year
+
+```{python}
+CA_ACLED['year'] = CA_ACLED['year'].astype(int)
+CA_ACLED.dropna(subset=['event_type'], inplace=True)
+CA_ACLED = CA_ACLED[CA_ACLED['country'] != 'Mexico']
+# Aggregate data to get total crimes per year per country
+aggregated_data = (
+    CA_ACLED.groupby(['country', 'year'])
+    .size()
+    .reset_index(name='total_crimes')
+)
+
+
+bar_chart = alt.Chart(aggregated_data).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('total_crimes:Q', title='Total Crimes'),
+    color=alt.Color('country:N', title='Country'),
+    tooltip=['country', 'year', 'total_crimes']
+).properties(
+    title="Total Crimes Per Year Per Country",
+    width=600,
+    height=400
+)
+
+bar_chart.show()
+```
+
+## Line Chart for Crimes
+```{python}
+
+line_chart = alt.Chart(aggregated_data).mark_line(point=True).encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('total_crimes:Q', title='Total Crimes'),
+    color=alt.Color('country:N', title='Country'),
+    tooltip=['country', 'year', 'total_crimes']
+).properties(
+    title="Total Crimes Per Year Per Country",
+    width=600,
+    height=400
+)
+
+
+line_chart.show()
+```
+
+## Lets rerun with Violent Crimes per Person
+
+```{python}
+wbdi = pd.read_csv('/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/Clean Data /world_bank_development_indicators_cleaned.csv')
+
+wbdi['year'] = pd.to_datetime(wbdi['date']).dt.year
+
+wbdi = wbdi.rename(columns={'population': 'Population'})
+
+
+merged_data = pd.merge(aggregated_data, wbdi[['country', 'year', 'Population']],
+                       on=['country', 'year'], 
+                       how='left')
+
+
+merged_data['crimes_per_person'] = merged_data['total_crimes'] / merged_data['Population']
+
+
+
+
+line_chart = alt.Chart(merged_data).mark_line(point=True).encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('crimes_per_person:Q', title='Crimes per Person'),
+    color=alt.Color('country:N', title='Country'),
+    tooltip=['country', 'year', 'crimes_per_person']
+).properties(
+    title="Crimes Per Person Per Year Per Country",
+    width=400,
+    height=400
+)
+
+# Display the chart
+line_chart.show()
+```
+
+```{python}
+wbdi.columns
+```
+
+## VS Line of only crimes in wbdi
+```{python}
+wbdi['homicide_per_person'] = wbdi['intentional_homicides'] / wbdi['Population']
+
+line_chart_wbdi = alt.Chart(wbdi).mark_line(point=True).encode(
+    x=alt.X('date:T', title = 'Year'),
+    y=alt.Y('homicide_per_person:Q', title= 'Homicide Per Person'),
+    color=alt.Color('country:N', title= 'Country'),
+    tooltip=['country', 'date', 'homicide_per_person']
+).properties(
+    title="Crimes Per Person Per Year Per Country",
+    width=400,
+    height=400
+)
+
+line_chart_wbdi
+
+```
+
+```{python}
+# Filter data for El Salvador
+el_salvador_data = CA_ACLED[CA_ACLED['country'] == 'El Salvador']
+
+# Aggregate data to get total crimes per year by event type
+crime_type_data = (
+    el_salvador_data.groupby(['year', 'event_type'])
+    .size()
+    .reset_index(name='crime_count')
+)
+
+# Create the stacked bar chart
+stacked_bar_chart = alt.Chart(crime_type_data).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('crime_count:Q', title='Number of Crimes'),
+    color=alt.Color('event_type:N', title='Crime Type'),
+    tooltip=['year', 'event_type', 'crime_count']
+).properties(
+    title="Crimes Per Year by Type in El Salvador",
+    width=600,
+    height=400
+)
+
+# Display the chart
+stacked_bar_chart.show()
+```
+
+## Analyzing a different ACLED DataSet
+```{python}
+acled_2013 = pd.read_csv('/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/2013-01-01-2024-01-01-Central_America.csv')
+```
+
+
+```{python}
+missing_columns = [col for col in CA_ACLED.columns if col not in acled_2013.columns]
+
+print("Columns in df2 but not in df1:", missing_columns)
+```
+
+
+```{python}
+print(acled_2013.columns)
+
+print(CA_ACLED.columns)
+```
+
+
+```{python}
+el_salvador_data_2 = acled_2013[acled_2013['country'] == 'El Salvador']
+
+crime_event_type_subtype_data = (
+    el_salvador_data.groupby(['year', 'event_type', 'sub_event_type'])
+    .size()
+    .reset_index(name='count_event_count')
+)
+```
+
+```{python}
+# Create the bar chart
+bar_chart_crime = alt.Chart(crime_event_type_subtype_data).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('count_event_count:Q', title='Total Crimes'),
+    color=alt.Color('event_type', title='Crime Type'),
+    tooltip=['count_event_count', 'year', 'event_type']
+).properties(
+    title="Total Crimes in El Salvador: Per Year Per Type",
+    width=600,
+    height=400
+)
+
+# Display the chart
+bar_chart_crime.show()
+```
+
+
+```{python}
+# Create the bar chart
+bar_chart_crime = alt.Chart(crime_event_type_subtype_data).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('count_event_count:Q', title='Total Crimes'),
+    color=alt.Color('sub_event_type', title='Crime Sub-Type'),
+    tooltip=['count_event_count', 'year', 'sub_event_type']
+).properties(
+    title="Total Crimes in El Salvador: Per Year Per Sub-Type",
+    width=600,
+    height=400
+)
+
+# Display the chart
+bar_chart_crime.show()
+```
+
+
+```{python}
+pie_charts = []
+
+# Loop through each unique year and create a pie chart
+for year in crime_event_type_subtype_data['year'].unique():
+    year_data = crime_event_type_subtype_data[crime_event_type_subtype_data['year'] == year]
+    
+    pie_chart = alt.Chart(year_data).mark_arc().encode(
+        theta=alt.Theta(field="count_event_count", type="quantitative"),
+        color=alt.Color(field="sub_event_type", type="nominal", legend=alt.Legend(title="Sub Event Type")),
+        tooltip=[
+            alt.Tooltip("event_type:N", title="Event Type"),
+            alt.Tooltip("sub_event_type:N", title="Sub Event Type"),
+            alt.Tooltip("count_event_count:Q", title="Event Count")
+        ]
+    ).properties(
+        title=f"Crime Event Distribution in El Salvador ({year})"
+    )
+    
+    pie_charts.append(pie_chart)
+
+# Display all pie charts
+alt.vconcat(*pie_charts)
+```
+
+## Now Lets Look at Actors in El Salvador
+```{python}
+actors_df = (el_salvador_data_2.groupby(['year', 'actor1'])
+    .size()
+    .reset_index(name='count_actors')
+)
+
+unique_actors = actors_df['actor1'].nunique()
+```
+
+```{python}
+print(f"Total unique actors: {unique_actors}")
+
+## Too many actors
+
+actor_counts = (
+    el_salvador_data_2.groupby('actor1')
+    .size()
+    .reset_index(name='total_count')
+    .sort_values(by='total_count', ascending=False)
+)
+
+## Lets filter out actors that appear less than 10 times through the years:
+
+threshold = 10 
+actor_counts['cleaned_actor1'] = actor_counts['actor1'].where(
+    actor_counts['total_count'] >= threshold, 'Other'
+)
+
+cleaned_actor_counts = (
+    actor_counts.groupby('cleaned_actor1')['total_count']
+    .sum()
+    .reset_index()
+    .sort_values(by='total_count', ascending=False)
+)
+
+print(cleaned_actor_counts)
+```
+
+
+## Lets Clean it up a little More
+
+```{python}
+actor_mapping = {
+    'Police Forces of El Salvador (2019-)': 'Police Forces of El Salvador',
+    'Police Forces of El Salvador (2009-2019)': 'Police Forces of El Salvador',
+    'Military Forces of El Salvador (2019-)': 'Military Forces of El Salvador',
+    'Military Forces of El Salvador (2009-2019)': 'Military Forces of El Salvador',
+    'B-18 (S): Barrio-18 (Surenos)': 'B-18: Barrio-18',
+    'B-18 (R): Barrio-18 (Revolucionarios)': 'B-18: Barrio-18',
+    'Unidentified Gang (El Salvador)': 'Unidentified Group (El Salvador)',
+    'Unidentified Armed Group (El Salvador)': 'Unidentified Group (El Salvador)'
+}
+
+#Apply the mapping to the `actor1` column
+actors_df['cleaned_actor1'] = actors_df['actor1'].replace(actor_mapping)
+
+#group by categories
+tidy_actor_counts = (
+    actors_df.groupby('cleaned_actor1')['count_actors']
+    .sum()
+    .reset_index()
+    .sort_values(by='count_actors', ascending=False)
+)
+
+# Display the tidy result
+print(f"Total unique actors after cleaning: {tidy_actor_counts['cleaned_actor1'].nunique()}")
+print(tidy_actor_counts)
+```
+
+## applying it to the main dataset of el salvador to track actors year by year
+```{python}
+el_salvador_data_2['cleaned_actor1'] = el_salvador_data_2['actor1'].replace(actor_mapping)
+
+# Group by year and cleaned actor categories, then count occurrences
+yearly_actor_counts = (
+    el_salvador_data_2.groupby(['year', 'cleaned_actor1'])
+    .size()
+    .reset_index(name='count_actors')
+)
+
+```
+
+
+```{python}
+bar_chart_crime = alt.Chart(yearly_actor_counts).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('count_actors:Q', title='Actor Count'),
+    color=alt.Color('cleaned_actor1', title='Actor'),
+    tooltip=['cleaned_actor1', 'year', 'count_actors']
+).transform_filter(
+    alt.datum.count_actors > 20  # Filter for actors with count > 20
+).properties(
+    title="Actor Prevalence by Year (Count > 20)",
+    width=600,
+    height=400
+)
+
+# Display the chart
+bar_chart_crime.show()
+```
+
+
+## Topic Modeling
+
+
+```{python}
+import gensim
+from gensim import corpora
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+import re
+import altair as alt
+import pandas as pd
+
+
+el_salvador_filtered = acled_2013[acled_2013['country'] == 'El Salvador']
+
+## Preprocess
+def preprocess_text_column(text):
+    text = text.lower()
+    text = re.sub(r'\W+', ' ', text)
+    tokens = text.split()
+    tokens = [word for word in tokens if word not in ENGLISH_STOP_WORDS and len(word) > 3] 
+    return tokens
+
+
+el_salvador_filtered['notes_cleaned'] = el_salvador_filtered['notes'].apply(
+    lambda x: preprocess_text_column(x) if isinstance(x, str) else []
+)
+
+#Build the dictionary/ corpus
+lda_dictionary = corpora.Dictionary(el_salvador_filtered['notes_cleaned'])
+lda_corpus = [lda_dictionary.doc2bow(text) for text in el_salvador_filtered['notes_cleaned']]
+
+# Train LDA model on all years
+lda_model = gensim.models.LdaModel(
+    lda_corpus, 
+    num_topics=5,  # Adjust as needed
+    id2word=lda_dictionary, 
+    passes=15
+)
+
+# Get the top words for each topic
+def get_topic_top_words(lda_model, num_words=5):
+    topics = lda_model.print_topics(num_topics=-1, num_words=num_words)
+    topic_dict = {
+        topic_id: [word.split("*")[1].strip('"') for word in topic_desc.split(" + ")]
+        for topic_id, topic_desc in topics
+    }
+    return topic_dict
+
+topic_words = get_topic_top_words(lda_model, num_words=5)
+
+# Convert topics to a DataFrame for tabular display
+topic_words_table = pd.DataFrame([
+    {"Topic": topic_id, "Words": ", ".join(words)}
+    for topic_id, words in topic_words.items()
+])
+
+
+def calculate_topic_distribution(document):
+    topic_distribution = lda_model.get_document_topics(document, minimum_probability=0.0)
+    return [prob for _, prob in topic_distribution]
+
+el_salvador_filtered['topic_distribution'] = el_salvador_filtered['notes_cleaned'].apply(
+    lambda x: calculate_topic_distribution(lda_dictionary.doc2bow(x))
+)
+
+# Reset index to ensure alignment
+el_salvador_filtered = el_salvador_filtered.reset_index(drop=True)
+
+# Create DataFrame from topic distributions
+topic_columns = [f"Topic {i}" for i in range(lda_model.num_topics)]
+topic_distributions_df = pd.DataFrame(
+    el_salvador_filtered['topic_distribution'].tolist(), 
+    columns=topic_columns
+)
+
+#concat back into df
+el_salvador_filtered = pd.concat([el_salvador_filtered, topic_distributions_df], axis=1)
+
+#aggregate topic proportions by year
+topics_over_time = el_salvador_filtered.groupby('year')[topic_columns].mean().reset_index()
+
+#visualize topic proportions over time
+topics_melted = topics_over_time.melt(id_vars='year', var_name='Topic', value_name='Proportion')
+
+topic_chart = alt.Chart(topics_melted).mark_line(point=True).encode(
+    x='year:O',
+    y='Proportion:Q',
+    color='Topic:N',
+    tooltip=['year', 'Topic', 'Proportion']
+).properties(
+    title="Topic Proportions Over Time",
+    width=600,
+    height=400
+)
+
+topic_chart.show()
+```
+
+```{python}
+print(topic_words_table)
+```
+
+
+```{python}
+from collections import Counter
+
+#  word frequencies for each year
+def get_word_frequencies_by_year(df):
+    word_frequencies = {}
+    for year, group in df.groupby('year'):
+        all_words = [word for text in group['notes_cleaned'] for word in text]
+        word_counts = Counter(all_words)
+        word_frequencies[year] = word_counts
+    return word_frequencies
+
+
+word_frequencies_by_year = get_word_frequencies_by_year(el_salvador_filtered)
+
+# Convert to DF
+word_freq_df = pd.DataFrame([
+    {"Year": year, "Word": word, "Frequency": freq}
+    for year, word_counts in word_frequencies_by_year.items()
+    for word, freq in word_counts.items()
+])
+
+
+top_words_df = (
+    word_freq_df.groupby("Year")
+    .apply(lambda group: group.nlargest(10, "Frequency"))
+    .reset_index(drop=True)
+)
+
+
+alt.Chart(top_words_df).mark_bar().encode(
+    x=alt.X("Frequency:Q", title="Frequency"),
+    y=alt.Y("Word:N", title="Word", sort="-x"),
+    color="Year:N",
+    column=alt.Column("Year:O", title="Year")
+).properties(
+    title="Top Words by Year",
+    width=150,
+    height=400
+)
+
+
+
+
+```
+
+
+## Mapping for Shiny APP
+## Look at administrative and geographic columns in ACLED Data
+## Bring in SHP file of Central American countries that has administrative columns 
+## Calculate events aggregation by type, count total and total by type for each admin in 2018, 2023. 
+## Graph Gradients of crime by each type on the maps
+
+
+
+```{python}
+# This is the column we want to track
+print(acled_2013['location'].unique)
+```
+
+
+```{python}
+import geopandas as gpd
+import matplotlib.pyplot as plt
+# GeoDataFrame for El Salvador administrative boundaries
+el_sal_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/slv_adm_gadm_20240819_ab_shp/slv_admbnda_adm3_gadm_20240819.shp'
+)
+
+# Ensure CRS is WGS84 for compatibility with event data
+el_sal_admin_boundaries = el_sal_admin_boundaries.to_crs("EPSG:4326")
+
+# Plot for verification
+el_sal_admin_boundaries.plot(edgecolor="black", figsize=(10, 8))
+plt.title("El Salvador Administrative Boundaries", fontsize=16)
+plt.show()
+```
+
+
+```{python}
+# GeoDataFrame for El Salvador event data
+el_sal_event_data = gpd.GeoDataFrame(
+    el_salvador_data_2,
+    geometry=gpd.points_from_xy(el_salvador_data_2.longitude, el_salvador_data_2.latitude),
+    crs="EPSG:4326"
+)
+
+```
+
+
+```{python}
+# Perform spatial join to assign events to administrative boundaries
+el_sal_events_with_boundaries = gpd.sjoin(
+    el_sal_event_data, el_sal_admin_boundaries, how="left", predicate="within"
+)
+```
+
+
+```{python}
+# Filter for relevant years
+el_sal_events_filtered = el_sal_events_with_boundaries[
+    el_sal_events_with_boundaries['year'].isin([2018, 2023])
+]
+
+# Aggregate event counts by administrative boundary and year
+el_sal_events_aggregated = (
+    el_sal_events_filtered.groupby(['ADM3_PCODE', 'year'])
+    .size()
+    .unstack(fill_value=0)
+    .reset_index()
+)
+
+# Rename columns dynamically for better clarity
+column_names = ['admin_boundary_code', 'event_count_2018', 'event_count_2023']
+el_sal_events_aggregated.columns = column_names
+```
+
+
+```{python}
+# Add percent change column
+el_sal_events_aggregated['percent_change_events'] = (
+    (el_sal_events_aggregated['event_count_2023'] - el_sal_events_aggregated['event_count_2018'])
+    / el_sal_events_aggregated['event_count_2018'].replace(0, 1)  # Avoid division by zero
+) * 100  # Convert to percentage
+```
+
+
+```{python}
+# Merge event data with administrative boundaries
+el_sal_admin_with_events = el_sal_admin_boundaries.merge(
+    el_sal_events_aggregated, left_on='ADM3_PCODE', right_on='admin_boundary_code', how='left'
+)
+
+# Fill missing values
+el_sal_admin_with_events['percent_change_events'] = el_sal_admin_with_events['percent_change_events'].fillna(0)
+```
+
+
+
+## Now lets join all the path files and create a consolidated path file
+
+
+```{python}
+nica_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/NICA SHP/geoBoundaries-NIC-ADM2.shp'
+)
+
+
+guat_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/Guatemala SHP/geoBoundaries-GTM-ADM2.shp'
+)
+
+hun_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/Honduras SHP/geoBoundaries-HND-ADM2.shp'
+)
+
+panama_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/PANAMA SHP/whosonfirst-data-admin-pa-county-polygon.shp'
+)
+
+
+costa_rica_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/Costa Rica SHP/geoBoundaries-CRI-ADM3.shp'
+)
+
+belize_admin_boundaries = gpd.read_file(
+    '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/Belize SHPs/geoBoundaries-BLZ-ADM2.shp'
+)
+
+
+
+```
+
+
+```{python}
+print("Belize Administrative Boundaries:")
+print(belize_admin_boundaries.head(), "\n")
+
+print("Nicaragua Administrative Boundaries:")
+print(nica_admin_boundaries.head(), "\n")
+
+print("Guatemala Administrative Boundaries:")
+print(guat_admin_boundaries.head(), "\n")
+
+print("Honduras Administrative Boundaries:")
+print(hun_admin_boundaries.head(), "\n")
+
+print("Panama Administrative Boundaries:")
+print(panama_admin_boundaries.head(), "\n")
+
+print("Costa Rica Administrative Boundaries:")
+print(costa_rica_admin_boundaries.head(), "\n")
+
+print("El Salvador Administrative Boundaries:")
+print(el_sal_admin_boundaries.head(), "\n")
+```
+
+```{python}
+# Ensure CRS is consistent
+desired_crs = "EPSG:4326"
+
+# Prepare and normalize each GeoDataFrame
+belize_admin_boundaries['country'] = 'Belize'
+belize_admin_boundaries = belize_admin_boundaries.rename(columns={
+    'shapeName': 'boundary_name', 
+    'shapeID': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+nica_admin_boundaries['country'] = 'Nicaragua'
+nica_admin_boundaries = nica_admin_boundaries.rename(columns={
+    'shapeName': 'boundary_name', 
+    'shapeID': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+guat_admin_boundaries['country'] = 'Guatemala'
+guat_admin_boundaries = guat_admin_boundaries.rename(columns={
+    'shapeName': 'boundary_name', 
+    'shapeID': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+hun_admin_boundaries['country'] = 'Honduras'
+hun_admin_boundaries = hun_admin_boundaries.rename(columns={
+    'shapeName': 'boundary_name', 
+    'shapeID': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+panama_admin_boundaries['country'] = 'Panama'
+panama_admin_boundaries = panama_admin_boundaries.rename(columns={
+    'name': 'boundary_name', 
+    'id': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+costa_rica_admin_boundaries['country'] = 'Costa Rica'
+costa_rica_admin_boundaries = costa_rica_admin_boundaries.rename(columns={
+    'shapeName': 'boundary_name', 
+    'shapeID': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+el_sal_admin_boundaries['country'] = 'El Salvador'
+el_sal_admin_boundaries = el_sal_admin_boundaries.rename(columns={
+    'ADM3_ES': 'boundary_name', 
+    'ADM3_PCODE': 'boundary_id'
+})[['country', 'boundary_name', 'boundary_id', 'geometry']].to_crs(desired_crs)
+
+# Combine all GeoDataFrames
+ca_admin_boundaries = gpd.GeoDataFrame(
+    pd.concat([
+        belize_admin_boundaries,
+        nica_admin_boundaries,
+        guat_admin_boundaries,
+        hun_admin_boundaries,
+        panama_admin_boundaries,
+        costa_rica_admin_boundaries,
+        el_sal_admin_boundaries
+    ], ignore_index=True),
+    crs=desired_crs
+)
+
+# Save to a shapefile or other formats if needed
+##ca_admin_boundaries.to_file('ca_admin_boundaries1.shp', driver='ESRI Shapefile')
+
+```
+
+```{python}
+# Save to Shapefile
+#ca_admin_boundaries.to_file('ca_admin_boundaries.shp', driver='ESRI Shapefile')
+```
+
+```{python}
+#ca_admin_boundaries.plot(edgecolor="black", figsize=(10, 8))
+#plt.title("Central American Administrative Boundaries", fontsize=16)
+plt.show()
+```
+
+
+```{python}
+#ca_gdf = gpd.read_file(
+    #'/Users/willsigal/Documents/GitHub/Final-Project/CA_shape_files/ca_admin_boundaries.shp')
+
+#ca_gdf.head()
+```
+
