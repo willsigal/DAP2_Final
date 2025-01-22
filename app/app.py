@@ -6,8 +6,8 @@ import numpy as np
 
 # Step 1: Load and preprocess data
 ### will wd
-acled_file_path = '/Users/willsigal/Desktop/UChicago/Fall 2025/Python Final/2013-01-01-2024-01-01-Central_America.csv'
-shapefile_path = '/Users/willsigal/Documents/GitHub/Final-Project/CA_shape_files/ca_admin_boundaries1.shp'
+acled_file_path = '/Users/willsigal/Documents/GitHub/DAP2_Final/Data/2013-01-01-2024-01-01-Central_America.csv'
+shapefile_path = '/Users/willsigal/Documents/GitHub/DAP2_Final/app/Data/CA_shape_files/ca_admin_boundaries1.shp'
 ### andy wd
 #acled_file_path = 'd:\\UChicago\\Classes\\2024Qfall\\Programming Python\\Final-Project\\Data\\2013-01-01-2024-01-01-Central_America.csv'
 #shapefile_path = 'd:\\UChicago\\Classes\\2024Qfall\\Programming Python\\Final-Project\\CA_shape_files\\ca_admin_boundaries1.shp'
@@ -59,7 +59,7 @@ def server(input, output, session):
     @output
     @render.plot
     def map_plot():
-        # Filter events based on country and event type
+    # Filter events based on country and event type
         filtered_events = events_with_boundaries.copy()
         if input.country_selector() != "All":
             filtered_events = filtered_events[filtered_events["country"] == input.country_selector()]
@@ -70,8 +70,19 @@ def server(input, output, session):
         events_filtered = filtered_events[filtered_events['year'].isin([2018, 2023])]
 
         # Aggregate events
-        events_agg = events_filtered.groupby(['boundary_i', 'year']).size().unstack(fill_value=0).reset_index()
-        events_agg.columns = ['boundary_i', 'events_2018', 'events_2023']
+        try:
+            events_agg = events_filtered.groupby(['boundary_i', 'year']).size().unstack(fill_value=0).reset_index()
+            # Check column length before renaming
+            if events_agg.shape[1] == 3:  # Expecting 3 columns
+                events_agg.columns = ['boundary_i', 'events_2018', 'events_2023']
+            else:
+                raise ValueError("Not enough events to create a comparison.")
+        except Exception as e:
+            # Return a placeholder figure with a message if there's an error
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.text(0.5, 0.5, "Not enough events to create comparison", fontsize=16, ha="center", va="center")
+            ax.set_axis_off()
+            return fig
 
         # Merge with shapefile
         filtered_data = ca_gdf.merge(events_agg, on='boundary_i', how='left')
@@ -95,10 +106,8 @@ def server(input, output, session):
 
         # Adjust the base map depending on the selected country
         if input.country_selector() != "All":
-            # Subset the base map to the selected country
             base_gdf = ca_gdf[ca_gdf['country'] == input.country_selector()]
             base = base_gdf.plot(color='white', edgecolor='black', linewidth=0.5, ax=ax)
-            # Adjust the axis limits to the selected country
             xmin, ymin, xmax, ymax = base_gdf.total_bounds
             ax.set_xlim(xmin, xmax)
             ax.set_ylim(ymin, ymax)
@@ -118,7 +127,6 @@ def server(input, output, session):
                 vmax=500
             )
 
-        
         if not zero_events.empty:
             zero_events.plot(
                 color='gray',
@@ -134,7 +142,7 @@ def server(input, output, session):
     @output
     @render.text
     def summary_stats():
-        # Filter events based on country and event type
+         # Filter events based on country and event type
         filtered_events = events_with_boundaries.copy()
         if input.country_selector() != "All":
             filtered_events = filtered_events[filtered_events["country"] == input.country_selector()]
@@ -145,8 +153,14 @@ def server(input, output, session):
         events_filtered = filtered_events[filtered_events['year'].isin([2018, 2023])]
 
         # Aggregate events
-        events_agg = events_filtered.groupby(['boundary_i', 'year']).size().unstack(fill_value=0).reset_index()
-        events_agg.columns = ['boundary_i', 'events_2018', 'events_2023']
+        try:
+            events_agg = events_filtered.groupby(['boundary_i', 'year']).size().unstack(fill_value=0).reset_index()
+            if events_agg.shape[1] == 3:  # Expecting 3 columns
+                events_agg.columns = ['boundary_i', 'events_2018', 'events_2023']
+            else:
+                raise ValueError("Not enough events to create comparison.")
+        except Exception as e:
+            return "Not enough events to create comparison."
 
         # Merge with shapefile
         filtered_data = ca_gdf.merge(events_agg, on='boundary_i', how='left')
@@ -167,7 +181,7 @@ def server(input, output, session):
         avg_percent_change = filtered_data['percent_change'].mean()
 
         # Calculate total percent change
-        if total_events_2018 > 0:  # Avoid division by zero
+        if total_events_2018 > 0:
             total_percent_change = ((total_events_2023 - total_events_2018) / total_events_2018) * 100
         else:
             total_percent_change = 0
