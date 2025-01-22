@@ -1,6 +1,7 @@
 # Final-Project
+Our project analyzes El Salvador's crime reduction between 2018 and 2023 using Armed Conflict Location & Event Data (ACLED) dataset. We compare this data to Cental America, generally, before looking at the conflict trends correlation with development indicators.
 
-QMD FILES TO LOAD: (in order)
+# QMD FILES TO LOAD: (in order)
 
 1.final_project_data_clean.qmd -- cleans all the datasets from raw data into usable data that the other qmds load
 
